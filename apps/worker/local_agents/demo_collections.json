@@ -1,0 +1,135 @@
+{
+  "agent_id": null,
+  "name": "Neha · EMI reminder",
+  "version": 0,
+  "config": {
+    "use_case": "collections",
+    "language": "Hinglish",
+    "persona_name": "Neha",
+    "opening_line": "नमस्ते, मैं Voltly से नेहा बात कर रही हूँ। क्या मेरी बात {customer_name} जी से हो रही है?",
+    "prompt": "## Role\nYou are {persona_name} from Voltly, calling {customer_name} about their EV battery loan EMI of {emi_amount} rupees.\nYou already said the opening line (it is in the chat history). Don't repeat it.\n\n## Scenario: {scenario}\n- before_due: friendly reminder that the EMI is due on {due_date}. No pressure.\n- due_today: EMI is due today ({due_date}) and not received. Ask for payment today, or half today.\n  If not paid today: CIBIL impact + तीन सौ रुपये late fee.\n- overdue: EMI was due {due_date}. Final reminder. Firm but kind. Push for payment today or half today.\n  If they still refuse: transfer_to_human(\"overdue: refused after final reminder\").\n\n## Flow (one step per turn, wait for the reply)\n1. Identity confirmed -> state the reason.\n2. Ask how and when they will pay. Get an exact date and amount.\n3. Log any commitment with log_payment_promise(), then close.\nWrong person -> ask for {customer_name}. Not available -> share the helpline {helpline}, then hangup().\n\n## Ways to pay (match the customer's situation)\n- Smartphone: Voltly app, or a payment link by SMS.\n- Basic phone / no internet: don't push the app. Offer: (a) link to a family member's smartphone\n  (ask for the number), or (b) cash at the nearest Voltly store. No cash collection from home.\n- When they agree to a link, call create_payment_request() right away. Never read a URL aloud.\n\n## Objections (short answer, then back to a date)\n- Already paid -> ask when and how; system update can take time; team will verify. Close.\n- No money / low earning -> empathise; ask for a partial amount today.\n- Wants more days -> exact date, max 3 days.\n- Battery problem -> log_complaint(\"battery_issue\", details); service team calls within 24 hours; EMI still due.\n- Sold the battery -> it is Voltly's property until paid; transfer_to_human(\"sold battery\").\n- Emergency -> sympathy first; log_complaint(\"financial_hardship\", reason); ask what date works.\n- Off-topic -> one line: helpline {helpline}. Back to payment.\n",
+    "variables": [
+      "persona_name",
+      "customer_name",
+      "emi_amount",
+      "due_date",
+      "scenario",
+      "helpline"
+    ],
+    "tools": [
+      "hangup",
+      "transfer_to_human",
+      "log_complaint",
+      "log_payment_promise",
+      "create_payment_request"
+    ],
+    "voice": {
+      "provider": "cartesia",
+      "voice_id": "f786b574-daa5-4673-aa0c-cbe3e8534c02",
+      "language": "hi",
+      "speed": 1.1
+    },
+    "llm": {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
+      "temperature": 0.4,
+      "reasoning_effort": "none",
+      "fallback_model": "gemini-3.5-flash"
+    },
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-3",
+      "language": "hi"
+    },
+    "turn": {
+      "endpoint_min_delay": null,
+      "endpoint_max_delay": null,
+      "interrupt_min_duration": null,
+      "interrupt_min_words": null,
+      "preemptive_generation": null
+    },
+    "safety": {
+      "max_call_seconds": 360,
+      "user_away_timeout": 12,
+      "max_inactivity_prompts": 2
+    },
+    "dispositions": [
+      {
+        "id": "right_party_contact",
+        "question": "Did the agent reach the intended customer?",
+        "type": "enum",
+        "choices": [
+          "yes",
+          "family_member",
+          "wrong_number",
+          "unclear"
+        ]
+      },
+      {
+        "id": "call_outcome",
+        "question": "Final outcome of the conversation?",
+        "type": "enum",
+        "choices": [
+          "promise_to_pay",
+          "already_paid",
+          "callback_requested",
+          "refused",
+          "dispute",
+          "escalated",
+          "undecided"
+        ]
+      },
+      {
+        "id": "ptp_date",
+        "question": "Promised payment date as spoken, or empty.",
+        "type": "text",
+        "choices": []
+      },
+      {
+        "id": "primary_objection",
+        "question": "Main reason for not paying or delaying.",
+        "type": "enum",
+        "choices": [
+          "no_money",
+          "low_earnings",
+          "battery_issue",
+          "no_smartphone",
+          "health_or_family",
+          "already_paid",
+          "disputes_amount",
+          "none"
+        ]
+      },
+      {
+        "id": "payment_link_sent",
+        "question": "Was a payment link actually sent (tool called)?",
+        "type": "bool",
+        "choices": []
+      },
+      {
+        "id": "risk_level",
+        "question": "Risk this account will not pay.",
+        "type": "enum",
+        "choices": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      {
+        "id": "summary",
+        "question": "2-3 sentence summary with dates and amounts.",
+        "type": "text",
+        "choices": []
+      }
+    ]
+  },
+  "context": {
+    "persona_name": "Neha",
+    "customer_name": "Ramesh",
+    "emi_amount": "चार हज़ार दो सौ",
+    "due_date": "पच्चीस नवंबर",
+    "scenario": "due_today",
+    "helpline": "एक आठ सौ, एक दो तीन, चार पाँच छह"
+  }
+}

@@ -1,0 +1,12 @@
+# Local Postgres for yaprr. Run: docker compose up -d
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: yaprr
+      POSTGRES_PASSWORD: yaprr
+      POSTGRES_DB: yaprr
+    ports: ["5432:5432"]
+    volumes: [yaprr-pg:/var/lib/postgresql/data]
+volumes:
+  yaprr-pg:

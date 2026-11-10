@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+# Node
+node_modules/
+dist/
+# Secrets
+.env
+# Runtime artifacts
+apps/worker/runtime/
+*.db
+# Private notes (interview log mentions employers/vendors: keep out of the public repo)
+notes/
+*.tsbuildinfo

@@ -1,0 +1,5 @@
+# Pinned exactly: `~=1.5` silently upgraded to 1.8.x on a fresh install, which
+# changed the turn-detector models and broke startup. Upgrade on purpose, test, then bump.
+livekit-agents[deepgram,cartesia,google,openai,silero,turn-detector]==1.5.8
+livekit-plugins-noise-cancellation==0.3.2
+python-dotenv

@@ -1,0 +1,8 @@
+# yaprr API as an AWS Lambda container image (pushed to ECR).
+FROM public.ecr.aws/lambda/python:3.12
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY yaprr_api ./yaprr_api
+COPY migrations ./migrations
+COPY alembic.ini lambda_handler.py ./
+CMD ["lambda_handler.handler"]

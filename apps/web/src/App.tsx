@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { auth } from "./api";
 import { ToastProvider } from "./components/ui";
 import AgentEditor from "./pages/AgentEditor";
 import Agents from "./pages/Agents";
@@ -12,7 +14,30 @@ const NAV: [string, [string, string][]][] = [
   ["Analyze", [["/calls", "Calls"]]],
 ];
 
+function Login() {
+  const [token, setToken] = useState("");
+  return (
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 16 }}>
+      <form className="card" style={{ width: "min(380px, 100%)", display: "grid", gap: 12 }}
+        onSubmit={(e) => { e.preventDefault(); auth.set(token.trim()); window.location.reload(); }}>
+        <h2>yaprr</h2>
+        <p className="sub" style={{ margin: 0 }}>Enter the access token for this deployment.</p>
+        <div className="field"><label htmlFor="tok">Access token</label>
+          <input id="tok" type="password" autoComplete="current-password" value={token} onChange={(e) => setToken(e.target.value)} /></div>
+        <button className="btn pri" disabled={!token.trim()}>Sign in</button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
+  const [locked, setLocked] = useState(false);
+  useEffect(() => {
+    const onUnauthorized = () => { auth.clear(); setLocked(true); };
+    window.addEventListener("yaprr:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("yaprr:unauthorized", onUnauthorized);
+  }, []);
+  if (locked) return <Login />;
   return (
     <ToastProvider>
       <div className="app">
@@ -37,7 +62,9 @@ export default function App() {
               </div>
             ))}
           </nav>
-          <div className="foot">M1 · agents from DB</div>
+          <div className="foot">
+            v0.3 {auth.get() && <button className="btn sm ghost" style={{ marginLeft: 6 }} onClick={() => { auth.clear(); window.location.reload(); }}>Sign out</button>}
+          </div>
         </aside>
         <main className="main">
           <Routes>

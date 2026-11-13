@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from yaprr_api.db import get_db
-from yaprr_api.deps import require_worker
+from yaprr_api.deps import require_admin, require_worker
 from yaprr_api.models import Agent, AgentVersion, Call
 from yaprr_api.schemas import (
     TOOL_CATALOG,
@@ -27,7 +27,8 @@ from yaprr_api.seed import DEMO_CONTEXT
 from yaprr_api.settings import get_settings
 from yaprr_api.stats import summarize
 
-router = APIRouter(prefix="/api", tags=["agents"])
+router = APIRouter(prefix="/api", tags=["agents"], dependencies=[Depends(require_admin)])
+internal = APIRouter(prefix="/api", tags=["internal"], dependencies=[Depends(require_worker)])
 
 
 def _get(db: Session, agent_id: str) -> Agent:
@@ -129,8 +130,7 @@ def list_versions(agent_id: str, db: Session = Depends(get_db)):
                        config=AgentConfig.model_validate(v.config)) for v in rows]
 
 
-@router.get("/internal/agents/{agent_id}/runtime", response_model=RuntimeConfigOut,
-            dependencies=[Depends(require_worker)])
+@internal.get("/internal/agents/{agent_id}/runtime", response_model=RuntimeConfigOut)
 def runtime_config(agent_id: str, version: int | None = None, draft: bool = False, db: Session = Depends(get_db)):
     """What the worker runs. Default: latest published version. `draft=true` for test calls."""
     agent = _get(db, agent_id)

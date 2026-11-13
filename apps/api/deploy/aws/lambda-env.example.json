@@ -1,0 +1,12 @@
+{
+  "Variables": {
+    "DATABASE_URL": "postgresql+psycopg://USER:PASSWORD@ep-xxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+    "WORKER_TOKEN": "",
+    "ADMIN_TOKEN": "",
+    "LIVEKIT_URL": "wss://your-project.livekit.cloud",
+    "LIVEKIT_API_KEY": "",
+    "LIVEKIT_API_SECRET": "",
+    "WORKER_AGENT_NAME": "yaprr-agent",
+    "SEED_DEMO_AGENTS": "true"
+  }
+}

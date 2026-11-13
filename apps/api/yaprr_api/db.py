@@ -29,10 +29,38 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
+def migrate(engine_=None) -> str:
+    """Bring the database to the latest Alembic revision (runs on API startup).
+
+    - fresh DB              -> `upgrade head` creates everything
+    - DB made by create_all -> (pre-Alembic dev DBs) add any missing columns, then `stamp head`
+    - managed DB            -> `upgrade head` applies only the new migrations
+    """
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
+
+    engine_ = engine_ or engine
+    root = Path(__file__).resolve().parents[1]
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "migrations"))
+    insp = inspect(engine_)
+    legacy = insp.has_table("agents") and not insp.has_table("alembic_version")
+    if legacy:
+        add_missing_columns(engine_)
+    with engine_.begin() as conn:
+        cfg.attributes["connection"] = conn  # migrate *this* engine, not the app default
+        if legacy:
+            command.stamp(cfg, "head")
+            return "stamped"
+        command.upgrade(cfg, "head")
+    return "upgraded"
+
+
 def add_missing_columns(engine_) -> list[str]:
-    """Tiny forward-only migration for dev databases: add new *nullable* columns that
-    `create_all` won't add to existing tables. Replace with Alembic before running
-    more than one environment (roadmap M5)."""
+    """Used once, to adopt pre-Alembic dev databases (see `migrate`)."""
     from sqlalchemy import inspect, text
 
     added = []

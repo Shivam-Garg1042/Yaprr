@@ -2,6 +2,7 @@ import json
 
 from livekit import api
 
+
 from tests.conftest import W
 
 MIN_CFG = {"prompt": "You are a polite assistant calling {customer_name} about a reminder.",
@@ -66,3 +67,15 @@ def test_duplicate_and_legacy_fallback_migration(client):
     legacy = {**MIN_CFG, "llm": {"provider": "groq", "model": "qwen/qwen3.8-27b", "fallback_model": "gemini-3.5-flash"}}
     a = client.post("/api/agents", json={"name": "legacy", "config": legacy}).json()
     assert a["config"]["llm"]["fallbacks"] == [{"provider": "google", "model": "gemini-3.5-flash", "reasoning_effort": ""}]
+
+
+def test_admin_token_protects_dashboard_but_not_worker_or_health(client, monkeypatch):
+    from yaprr_api.settings import get_settings
+    monkeypatch.setattr(get_settings(), "admin_token", "s3cret")
+    assert client.get("/api/agents").status_code == 401
+    assert client.get("/api/agents", headers={"Authorization": "Bearer nope"}).status_code == 401
+    ok = client.get("/api/agents", headers={"Authorization": "Bearer s3cret"})
+    assert ok.status_code == 200
+    aid = ok.json()[0]["id"]
+    assert client.get(f"/api/internal/agents/{aid}/runtime", headers=W).status_code == 200  # worker token only
+    assert client.get("/api/health").status_code == 200

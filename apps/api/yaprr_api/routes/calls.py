@@ -7,12 +7,13 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from yaprr_api.db import get_db
-from yaprr_api.deps import require_worker
+from yaprr_api.deps import require_admin, require_worker
 from yaprr_api.models import Agent, Call
 from yaprr_api.schemas import CallIn, CallOut, CallPage
 from yaprr_api.stats import interrupt_rate, summarize
 
-router = APIRouter(prefix="/api", tags=["calls"])
+router = APIRouter(prefix="/api", tags=["calls"], dependencies=[Depends(require_admin)])
+internal = APIRouter(prefix="/api", tags=["internal"], dependencies=[Depends(require_worker)])
 
 
 def _summary(c: Call) -> dict:
@@ -59,7 +60,7 @@ class CallFilters:
         return q
 
 
-@router.post("/internal/calls", status_code=201, dependencies=[Depends(require_worker)])
+@internal.post("/internal/calls", status_code=201)
 def ingest_call(body: CallIn, db: Session = Depends(get_db)) -> dict:
     """Upsert: the worker posts once when the call ends, again when dispositions finish."""
     if body.agent_id and not db.get(Agent, body.agent_id):

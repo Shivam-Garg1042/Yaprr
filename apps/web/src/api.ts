@@ -64,8 +64,20 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+const TOKEN_KEY = "yaprr_token";
+export const auth = {
+  get: () => { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } },
+  set: (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch { /* private mode */ } },
+  clear: () => { try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ } },
+};
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...init });
+  const token = auth.get();
+  const res = await fetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (res.status === 401) window.dispatchEvent(new Event("yaprr:unauthorized"));
   if (!res.ok) {
     let msg = res.statusText;
     try {

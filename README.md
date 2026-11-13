@@ -48,6 +48,8 @@ cd apps/web; npm install; npm run dev     # http://localhost:5173
 
 Open an agent → **Talk to agent** → Start test call. The call shows up under **Calls** when you hang up.
 
+Deploy: see [docs/DEPLOY.md](docs/DEPLOY.md) (Vercel + AWS Lambda + Neon + LiveKit Cloud).
+
 Tests: `pytest -q` in `apps/api` (also runs against Postgres via `DATABASE_URL`) and in `apps/worker`.
 
 ## Roadmap
@@ -56,6 +58,7 @@ Tests: `pytest -q` in `apps/api` (also runs against Postgres via `DATABASE_URL`)
 - [ ] **M2b** Alerts on p95 latency / cost / failover rate; noise + voice experiments (docs/QUALITY_PLAN.md)
 - [ ] **M3** Evals: simulated callers × scenarios, scored per agent version
 - [ ] **M4** Campaigns + real phone calls (SIP), retries, calling hours
-- [ ] **M5** Deploy + case study
+- [x] **M5a** Deploy-ready: Alembic migrations, access token, Dockerfiles, deploy guide
+- [ ] **M5b** Live deploy + case study
 
 Demo agents use a fictional company ("Voltly").

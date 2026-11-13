@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     worker_agent_name: str = "yaprr-agent"  # must match the worker's WorkerOptions(agent_name=...)
 
     seed_demo_agents: bool = True
+    # Access token for the dashboard/API (Authorization: Bearer <token>). Empty = open (local dev only).
+    # A public deploy without it lets anyone start calls on your LLM/TTS keys.
+    admin_token: str = ""
 
 
 @lru_cache

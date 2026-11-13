@@ -15,3 +15,9 @@ apps/worker/runtime/
 # Private notes (interview log mentions employers/vendors: keep out of the public repo)
 notes/
 *.tsbuildinfo
+# deploy secrets
+env.prod.yaml
+secrets.prod.env
+*.prod.env
+livekit.toml
+lambda-env.json

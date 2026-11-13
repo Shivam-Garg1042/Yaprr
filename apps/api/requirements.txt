@@ -5,3 +5,5 @@ psycopg[binary]==3.2.3
 pydantic-settings==2.6.1
 livekit-api==1.0.2
 python-dotenv==1.0.1
+alembic==1.14.0
+mangum==0.19.0

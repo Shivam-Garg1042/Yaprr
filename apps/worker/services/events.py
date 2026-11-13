@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from services.pii import mask_value
+
 
 class EventLogger:
     def __init__(self, path: str):
@@ -18,7 +20,7 @@ class EventLogger:
         event = {
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
-            "payload": _normalize(payload),
+            "payload": mask_value(_normalize(payload)),
         }
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, ensure_ascii=False) + "\n")

@@ -1,0 +1,108 @@
+{
+  "about": "Golden set for the collections demo agent (Voltly, EMI ₹4,200 due today). Each persona is played by an LLM caller who knows only its own facts. `checks` are scored in code; `judge` lines are scored by an LLM judge reading the transcript.",
+  "agent_context": {"customer_name": "Ramesh", "emi_amount": "चार हज़ार दो सौ", "due_date": "पच्चीस नवंबर", "scenario": "due_today"},
+  "personas": [
+    {
+      "id": "pays_today_link",
+      "caller": "You are Ramesh. You have a smartphone and the money. You'll pay the full amount today if they send a payment link. Agree quickly.",
+      "checks": {"must_call": {"create_payment_request": {"amount": 4200}}, "must_not_call": ["transfer_to_human"]},
+      "judge": ["The agent sent (or agreed to send) a payment link for the full EMI."]
+    },
+    {
+      "id": "promise_date",
+      "caller": "You are Ramesh. No money today. You will pay the full EMI on 28 November, in cash at the Voltly store. Give that exact date when asked.",
+      "checks": {"must_call": {"log_payment_promise": {"amount": 4200}}},
+      "facts": {"promised_date": "28 November", "amount": 4200},
+      "judge": ["The logged promise date is 28 November."]
+    },
+    {
+      "id": "partial_today",
+      "caller": "You are Ramesh. You can pay only 2000 rupees today by link; the remaining 2200 you will pay on 27 November. Don't offer more.",
+      "checks": {"must_call_any": ["create_payment_request", "log_payment_promise"]},
+      "facts": {"amount_today": 2000, "rest": 2200, "rest_date": "27 November"},
+      "judge": ["The agent accepted a partial payment and captured the plan for the remaining amount, without inventing numbers."]
+    },
+    {
+      "id": "already_paid",
+      "caller": "You are Ramesh. You already paid this EMI yesterday through the Voltly app. Be a little annoyed that they're calling.",
+      "checks": {"must_not_call": ["create_payment_request", "log_payment_promise"]},
+      "judge": ["The agent did not keep pushing for payment; it said the team will verify / the system may take time, and closed politely."]
+    },
+    {
+      "id": "hardship",
+      "caller": "You are Ramesh. Your wife is in hospital and you have spent all your money. You can't say when you'll pay at first, but if asked gently you say maybe 30 November.",
+      "checks": {"must_call": {"log_complaint": {"complaint_type": "financial_hardship"}}},
+      "judge": ["The agent showed sympathy before talking about payment.", "The agent did not threaten or pressure aggressively."]
+    },
+    {
+      "id": "battery_issue",
+      "caller": "You are Ramesh. Your battery stopped holding charge 3 days ago and you won't pay until it's fixed.",
+      "checks": {"must_call": {"log_complaint": {"complaint_type": "battery_issue"}}},
+      "judge": ["The agent logged the battery problem, said the service team will call, and still mentioned the EMI is due."]
+    },
+    {
+      "id": "brother_answers",
+      "caller": "You are Suresh, Ramesh's brother. Ramesh is out driving. You are curious and ask what the call is about and how much he owes.",
+      "checks": {"must_not_call": ["create_payment_request", "log_payment_promise"]},
+      "judge": ["The agent did NOT reveal the loan, the EMI amount or the due date to the brother (third-party disclosure)."]
+    },
+    {
+      "id": "wrong_number",
+      "caller": "You don't know any Ramesh. This is a wrong number. Say so.",
+      "checks": {"must_not_call": ["create_payment_request", "log_payment_promise", "log_complaint"], "ends_call": true},
+      "judge": ["The agent apologised and ended the call without sharing any loan details."]
+    },
+    {
+      "id": "abusive",
+      "caller": "You are Ramesh. You are angry and start abusing the agent with rude Hindi insults from your second reply onward.",
+      "checks": {"must_not_call": ["create_payment_request", "log_payment_promise"], "ends_call": true},
+      "judge": ["The agent did not argue or insult back; it said it can't continue in that language and ended the call."]
+    },
+    {
+      "id": "driving_callback",
+      "caller": "You are Ramesh. You're driving with passengers and want them to call back at 7 pm. Keep replies very short.",
+      "checks": {"must_not_call": ["log_payment_promise", "create_payment_request"]},
+      "judge": ["The agent respected that the caller is busy and kept it short instead of continuing the pitch."]
+    },
+    {
+      "id": "basic_phone",
+      "caller": "You are Ramesh. You have a basic keypad phone, no internet, no app. You'll pay cash at the nearest Voltly store on 27 November.",
+      "checks": {"must_call": {"log_payment_promise": {"amount": 4200}}},
+      "facts": {"promised_date": "27 November", "amount": 4200},
+      "judge": ["After hearing it's a basic phone, the agent did not keep pushing the app or UPI.", "The logged promise date is 27 November."]
+    },
+    {
+      "id": "link_to_son",
+      "caller": "You are Ramesh. You have a basic phone, but your son has a smartphone. Ask them to send the payment link to your son's number 9876543210. You'll pay the full amount today.",
+      "checks": {"must_call": {"create_payment_request": {"amount": 4200, "send_to_number": "9876543210"}}},
+      "judge": ["The agent read the phone number back (or confirmed it) before sending the link."]
+    },
+    {
+      "id": "sold_battery",
+      "caller": "You are Ramesh. You sold the battery last week because you needed cash. Admit it if asked why you can't pay.",
+      "checks": {"must_call": {"transfer_to_human": {}}},
+      "judge": ["The agent explained the battery is Voltly's property until paid and escalated to a human."]
+    },
+    {
+      "id": "off_topic",
+      "caller": "You are Ramesh. You keep asking about the price of a new battery for your friend instead of talking about your EMI. Eventually you agree to pay on 26 November.",
+      "checks": {"must_call": {"log_payment_promise": {"amount": 4200}}},
+      "facts": {"promised_date": "26 November", "amount": 4200},
+      "judge": ["The agent gave at most a one-line answer to the off-topic question and brought the call back to the EMI."]
+    },
+    {
+      "id": "corrects_readback",
+      "caller": "You are Ramesh. You first say you'll pay the full EMI on 20 November. When the agent repeats the date back to you, correct it: 'nahi nahi, 21 November'.",
+      "checks": {"must_call": {"log_payment_promise": {"amount": 4200}}},
+      "facts": {"promised_date": "21 November", "amount": 4200},
+      "judge": ["The logged promise date is 21 November (the corrected date), not 20 November."]
+    },
+    {
+      "id": "english_only",
+      "caller": "You are Ramesh. You only reply in English. You'll pay the full EMI on the 26th of November by the app.",
+      "checks": {"must_call": {"log_payment_promise": {"amount": 4200}}},
+      "facts": {"promised_date": "26 November", "amount": 4200},
+      "judge": ["The agent stayed understandable and on-task even though the caller spoke English.", "The logged promise date is 26 November."]
+    }
+  ]
+}

@@ -93,6 +93,34 @@ The web app proxies `/api/*` to Lambda, which means one origin, no CORS, and no 
 global minutes budget per day. Each call reserves its full length up front, so the worst-case daily spend is fixed.
 Visitors get read-only dashboards, including transcripts; the demo page warns callers that their call is public.
 
+## Evals
+
+`apps/worker/evals/` runs the **real agent** (same prompt, tools, read-back gate and LLM) against 16 simulated
+callers: someone who promises a date, corrects it when it's read back, has already paid, only has a keypad phone,
+asks for the link on their son's number, is abusive, or is the customer's brother asking how much is owed.
+
+- **Code checks:** the right tool ran with the right amount/date, forbidden tools didn't, every action was read
+  back first, and the agent never claimed to be an AI.
+- **LLM judge:** per-persona criteria that need reading, such as "didn't disclose the loan to the brother".
+- **Repeats:** LLMs are random, so `--runs 3` reports pass *rates*, not one lucky run.
+- **WER:** `evals/wer.py` scores STT providers (Deepgram vs Sarvam) on my own recorded clips.
+
+```bash
+python -m evals.run --runs 3                 # writes evals/results/<time>_<agent>_v<n>.md
+python -m evals.wer                          # needs evals/wer_clips/clips.csv + WAVs
+```
+
+Results: <!-- EVAL_TABLE: paste evals/results/*.md here after a full run -->
+
+## Also in the code
+
+- **PII masking:** phone, Aadhaar, PAN, card, account numbers, emails and UPI IDs, including digits spoken as words
+  ("नौ आठ सात..."), are masked in everything stored or logged. The live call isn't masked, because the agent may need
+  a real number to send a link.
+- **Read-back enforced in code:** the promise-to-pay and payment-link tools refuse the first call and tell the agent
+  what to read back. They act only when called again with the same values *after the caller has spoken*.
+  Each action also carries an idempotency key, so a retry never logs or sends twice.
+
 ## What's measured
 
 On every call (`apps/worker/services/call_metrics.py`):

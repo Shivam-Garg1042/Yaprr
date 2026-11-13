@@ -23,7 +23,7 @@ def render(template: str, context: dict[str, str]) -> str:
 
 
 class ConfiguredAgent(Agent):
-    def __init__(self, config: dict[str, Any], context: dict[str, str], emit: EventSink):
+    def __init__(self, config: dict[str, Any], context: dict[str, str], emit: EventSink, call_key: str = ""):
         ctx = {"persona_name": config.get("persona_name", ""), **context}
         self.opening_line = render(config.get("opening_line", ""), ctx)
         instructions = (
@@ -32,7 +32,7 @@ class ConfiguredAgent(Agent):
             + render(config["prompt"], ctx)
         )
         tools = build_tools(config.get("tools", []), customer_name=ctx.get("customer_name", "customer"),
-                            context=ctx, emit=emit)
+                            context=ctx, emit=emit, call_key=call_key)
         super().__init__(instructions=instructions, tools=tools)
 
     async def on_enter(self) -> None:

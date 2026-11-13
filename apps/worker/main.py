@@ -19,6 +19,7 @@ import logging
 import os
 import time
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from services.call_metrics import CallMetrics
 from services.config import load_app_config
 from services.dispositions import extract_dispositions, transcript_from_history
 from services.events import EventLogger
+from services.pii import mask_value
 from services.pipeline import build_room_options, build_session, load_vad
 from services.pricing import pricing_for
 from services.runtime import apply_agent_overrides, post_call_record, resolve_agent
@@ -75,7 +77,8 @@ async def entrypoint(ctx: JobContext) -> None:
     log("call_received", {"agent_id": resolved.agent_id, "version": resolved.version, "context": resolved.context})
 
     await ctx.connect()
-    agent = ConfiguredAgent(resolved.config, resolved.context, emit=log)
+    # The room name is stable for the whole call, so tool idempotency keys survive a worker reconnect.
+    agent = ConfiguredAgent(resolved.config, resolved.context, emit=log, call_key=ctx.room.name)
     session = build_session(config, vad)
 
     # ── observability ─────────────────────────────────────────────────────────
@@ -114,7 +117,9 @@ async def entrypoint(ctx: JobContext) -> None:
         guard.stop()
         ended_at = time.time()
         duration = ended_at - started_at
-        transcript = transcript_from_history(session.history)
+        # Everything we keep is masked (phone, PAN, Aadhaar, account numbers...). The live call wasn't.
+        pii_found: Counter = Counter()
+        transcript = mask_value(transcript_from_history(session.history), pii_found)
         record = {
             "id": call_id,
             "agent_id": resolved.agent_id,
@@ -124,7 +129,7 @@ async def entrypoint(ctx: JobContext) -> None:
             "ended_at": datetime.fromtimestamp(ended_at, timezone.utc).isoformat(),
             "duration_s": round(duration, 1),
             "ended_by": guard.end_reason or close_info.get("reason") or _reason or "unknown",
-            "context": resolved.context,
+            "context": mask_value(resolved.context, pii_found),
             "pipeline": {
                 "agent_name": resolved.name, "agent_source": resolved.source, "close_error": close_info.get("error"),
                 "stt": f"{config.stt_model}/{config.stt_language}", "llm": f"{config.llm_provider}:{config.llm_model}",
@@ -132,10 +137,11 @@ async def entrypoint(ctx: JobContext) -> None:
                 "turn": config.turn.__dict__, "safety": config.safety.__dict__,
             },
             "metrics": call_metrics.summary(duration),
-            "tool_calls": tool_calls,
+            "tool_calls": mask_value(tool_calls, pii_found),
             "dispositions": {"answers": None, "status": "pending"},
             "transcript": transcript,
         }
+        record["metrics"]["pii_masked"] = dict(pii_found)
         out_dir = Path(config.call_records_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{datetime.now():%Y%m%d-%H%M%S}_{ctx.room.name}.json"
@@ -152,12 +158,12 @@ async def entrypoint(ctx: JobContext) -> None:
                 dispositions = await extract_dispositions(
                     transcript, resolved.config.get("use_case", "collections"),
                     api_key=config.google_api_key, model=config.disposition_model,
-                    tool_calls=tool_calls, questions=resolved.config.get("dispositions") or None,
+                    tool_calls=record["tool_calls"], questions=resolved.config.get("dispositions") or None,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("[yaprr] Disposition extraction failed")
                 dispositions = {"answers": None, "error": str(exc)}
-        record["dispositions"] = dispositions
+        record["dispositions"] = mask_value(dispositions)
         save()
         synced = await post_call_record(record)
 

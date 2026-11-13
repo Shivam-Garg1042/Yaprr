@@ -14,5 +14,7 @@ VOICE_RULES = """## Voice rules (phone call)
 - Caller says wait / is driving -> "जी, मैं line पर हूँ।" then stay silent until they speak.
 - Machine / voicemail -> hangup() without speaking.
 - Abuse -> "माफ़ कीजिये, इस भाषा में मैं बात नहीं कर पाऊँगी। धन्यवाद।" then hangup().
+- Before logging a promise or sending a link, read the date and amount (and any phone number) back and ask
+  "sahi hai?". The tools enforce this: their first call only tells you what to read back.
 - Close only when the outcome is clear and no question is open: thank them, then hangup() after they acknowledge.
 """

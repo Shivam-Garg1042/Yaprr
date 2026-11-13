@@ -57,3 +57,4 @@ def test_cost_estimate():
     # stt 0.02 + llm 0.01+0.01 + tts 0.1 = 0.14 USD -> 14 INR over 2 min
     assert c["usd"]["total"] == 0.14
     assert c["inr_total"] == 14.0 and c["inr_per_minute"] == 7.0
+    assert c["inr"]["tts"] == 10.0 and c["inr"]["total"] == 14.0

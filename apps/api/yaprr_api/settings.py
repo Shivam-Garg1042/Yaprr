@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     # A public deploy without it lets anyone start calls on your LLM/TTS keys.
     admin_token: str = ""
 
+    # Public read-only mode: visitors can browse agents, calls and dashboards without a token.
+    # Writes still need ADMIN_TOKEN.
+    public_read: bool = False
+    # Visitors also see transcripts. The /try page tells callers their call will be public.
+    public_transcripts: bool = True
+
+    # Public "try it" demo: anyone can start a short call with one agent, within spend caps.
+    demo_enabled: bool = False
+    demo_agent_id: str = ""            # empty = the seeded collections demo agent
+    demo_max_call_seconds: int = 120   # the worker hangs up at this point
+    demo_calls_per_ip_per_day: int = 3
+    demo_minutes_per_day: int = 60     # global cap; every call reserves its full max length up front
+
 
 @lru_cache
 def get_settings() -> Settings:

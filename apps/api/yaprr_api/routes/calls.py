@@ -7,12 +7,14 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from yaprr_api.db import get_db
-from yaprr_api.deps import require_admin, require_worker
+from yaprr_api.deps import require_read, require_worker
 from yaprr_api.models import Agent, Call
 from yaprr_api.schemas import CallIn, CallOut, CallPage
+from yaprr_api.settings import get_settings
 from yaprr_api.stats import interrupt_rate, summarize
 
-router = APIRouter(prefix="/api", tags=["calls"], dependencies=[Depends(require_admin)])
+# Read-only: admins, plus visitors when PUBLIC_READ is on.
+router = APIRouter(prefix="/api", tags=["calls"], dependencies=[Depends(require_read)])
 internal = APIRouter(prefix="/api", tags=["internal"], dependencies=[Depends(require_worker)])
 
 
@@ -95,12 +97,26 @@ def list_calls(f: CallFilters = Depends(), limit: int = Query(50, ge=1, le=200),
 
 
 @router.get("/calls/{call_id}", response_model=CallOut)
-def get_call(call_id: str, db: Session = Depends(get_db)):
+def get_call(call_id: str, db: Session = Depends(get_db), admin: bool = Depends(require_read)):
     c = db.get(Call, call_id)
     if not c:
         raise HTTPException(404, "call not found")
+    if not admin and not get_settings().public_transcripts:
+        # Transcripts can hold whatever a demo caller said; this switch hides them from visitors.
+        return {**_summary(c), "context": {}, "pipeline": c.pipeline, "metrics": c.metrics,
+                "dispositions": {"answers": _public_answers(db, c)},
+                "tool_calls": [{"name": t.get("name"), "at": t.get("at")} for t in c.tool_calls or []],
+                "transcript": [], "redacted": True}
     return {**_summary(c), "context": c.context, "pipeline": c.pipeline, "metrics": c.metrics,
             "dispositions": c.dispositions, "tool_calls": c.tool_calls, "transcript": c.transcript}
+
+
+def _public_answers(db: Session, c: Call) -> dict:
+    """Only multiple-choice / yes-no answers. Free-text ones (summary, notes) can quote the caller."""
+    agent = db.get(Agent, c.agent_id) if c.agent_id else None
+    safe = {q["id"] for q in ((agent.config if agent else {}).get("dispositions") or []) if q.get("type") in ("enum", "bool")}
+    safe.add("call_outcome")
+    return {k: v for k, v in ((c.dispositions or {}).get("answers") or {}).items() if k in safe}
 
 
 @router.get("/stats/overview")

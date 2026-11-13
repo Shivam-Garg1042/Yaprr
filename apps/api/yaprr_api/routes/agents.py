@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from yaprr_api.db import get_db
-from yaprr_api.deps import require_admin, require_worker
+from yaprr_api.deps import require_admin, require_read, require_worker
 from yaprr_api.models import Agent, AgentVersion, Call
 from yaprr_api.schemas import (
     TOOL_CATALOG,
@@ -28,6 +28,8 @@ from yaprr_api.settings import get_settings
 from yaprr_api.stats import summarize
 
 router = APIRouter(prefix="/api", tags=["agents"], dependencies=[Depends(require_admin)])
+# GETs: also open to visitors when PUBLIC_READ is on (see deps.require_read).
+read = APIRouter(prefix="/api", tags=["agents"], dependencies=[Depends(require_read)])
 internal = APIRouter(prefix="/api", tags=["internal"], dependencies=[Depends(require_worker)])
 
 
@@ -47,12 +49,12 @@ def _out(db: Session, agent: Agent, with_stats: bool = True) -> AgentOut:
     )
 
 
-@router.get("/tools")
+@read.get("/tools")
 def list_tools() -> dict[str, str]:
     return TOOL_CATALOG
 
 
-@router.get("/agents", response_model=list[AgentOut])
+@read.get("/agents", response_model=list[AgentOut])
 def list_agents(include_archived: bool = False, db: Session = Depends(get_db)):
     q = select(Agent).order_by(Agent.created_at)
     if not include_archived:
@@ -68,7 +70,7 @@ def create_agent(body: AgentCreate, db: Session = Depends(get_db)):
     return _out(db, agent)
 
 
-@router.get("/agents/{agent_id}", response_model=AgentOut)
+@read.get("/agents/{agent_id}", response_model=AgentOut)
 def get_agent(agent_id: str, db: Session = Depends(get_db)):
     return _out(db, _get(db, agent_id))
 
@@ -122,7 +124,7 @@ def publish_agent(agent_id: str, body: PublishIn, db: Session = Depends(get_db))
     return VersionOut(version=v.version, note=v.note, created_at=v.created_at, config=AgentConfig.model_validate(v.config))
 
 
-@router.get("/agents/{agent_id}/versions", response_model=list[VersionOut])
+@read.get("/agents/{agent_id}/versions", response_model=list[VersionOut])
 def list_versions(agent_id: str, db: Session = Depends(get_db)):
     _get(db, agent_id)
     rows = db.scalars(select(AgentVersion).where(AgentVersion.agent_id == agent_id).order_by(AgentVersion.version.desc()))
@@ -151,29 +153,39 @@ def runtime_config(agent_id: str, version: int | None = None, draft: bool = Fals
 def test_session(agent_id: str, body: TestSessionIn, db: Session = Depends(get_db)):
     """Browser "Talk to agent": a LiveKit token whose room auto-dispatches our worker
     with {agent_id, version, context} as job metadata."""
+    agent = _get(db, agent_id)
+    version = None if body.use_draft else (body.version or agent.published_version)
+    if not body.use_draft and version is None:
+        raise HTTPException(409, "publish first, or set use_draft=true")
+    return mint_session(agent, version, draft=body.use_draft, context=body.context, room_prefix="test")
+
+
+def mint_session(agent: Agent, version: int | None, *, draft: bool = False, context: dict[str, str] | None = None,
+                 room_prefix: str = "test", max_call_seconds: int | None = None,
+                 ttl: timedelta = timedelta(minutes=30)) -> TestSessionOut:
+    """A LiveKit token for a fresh room that dispatches our worker. Everything in the
+    metadata is signed into the token, so the browser can't change the agent or the limits."""
     from livekit import api
 
     s = get_settings()
     if not (s.livekit_url and s.livekit_api_key and s.livekit_api_secret):
         raise HTTPException(503, "LiveKit is not configured on the API (LIVEKIT_URL/API_KEY/API_SECRET)")
-    agent = _get(db, agent_id)
     cfg = AgentConfig.model_validate(agent.config)
-    version = None if body.use_draft else (body.version or agent.published_version)
-    if not body.use_draft and version is None:
-        raise HTTPException(409, "publish first, or set use_draft=true")
-    context = {k: v for k, v in DEMO_CONTEXT.items() if k in cfg.variables} | body.context
-    context.setdefault("persona_name", cfg.persona_name)
-    room = f"test-{agent.id}-{uuid.uuid4().hex[:6]}"
-    metadata = json.dumps({"agent_id": agent.id, "version": version, "draft": body.use_draft, "context": context},
-                          ensure_ascii=False)
+    ctx = {k: v for k, v in DEMO_CONTEXT.items() if k in cfg.variables} | (context or {})
+    ctx.setdefault("persona_name", cfg.persona_name)
+    room = f"{room_prefix}-{agent.id}-{uuid.uuid4().hex[:6]}"
+    meta = {"agent_id": agent.id, "version": version, "draft": draft, "context": ctx}
+    if max_call_seconds:
+        meta["max_call_seconds"] = max_call_seconds
     token = (
         api.AccessToken(s.livekit_api_key, s.livekit_api_secret)
-        .with_identity(f"tester-{uuid.uuid4().hex[:6]}")
-        .with_name("yaprr tester")
-        .with_ttl(timedelta(minutes=30))
+        .with_identity(f"{room_prefix}er-{uuid.uuid4().hex[:6]}")
+        .with_name(f"yaprr {room_prefix}")
+        .with_ttl(ttl)
         .with_grants(api.VideoGrants(room_join=True, room=room))
         .with_room_config(api.RoomConfiguration(
-            agents=[api.RoomAgentDispatch(agent_name=s.worker_agent_name, metadata=metadata)]))
+            agents=[api.RoomAgentDispatch(agent_name=s.worker_agent_name,
+                                          metadata=json.dumps(meta, ensure_ascii=False))]))
         .to_jwt()
     )
     return TestSessionOut(livekit_url=s.livekit_url, token=token, room_name=room, agent_version=version)

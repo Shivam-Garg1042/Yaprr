@@ -7,6 +7,11 @@
     "LIVEKIT_API_KEY": "",
     "LIVEKIT_API_SECRET": "",
     "WORKER_AGENT_NAME": "yaprr-agent",
-    "SEED_DEMO_AGENTS": "true"
+    "SEED_DEMO_AGENTS": "true",
+    "PUBLIC_READ": "true",
+    "DEMO_ENABLED": "true",
+    "DEMO_MAX_CALL_SECONDS": "120",
+    "DEMO_CALLS_PER_IP_PER_DAY": "3",
+    "DEMO_MINUTES_PER_DAY": "60"
   }
 }

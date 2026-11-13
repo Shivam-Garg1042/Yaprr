@@ -25,12 +25,13 @@ export default function CallDetail() {
         <div className="card">
           <div className="card-h"><h3>Transcript</h3><span className="sub">dashed = agent was interrupted</span></div>
           <div className="msgs" style={{ maxHeight: "none" }}>
+            {c.redacted && <p className="empty">Transcripts are private in the public demo, because visitors' calls can contain anything they said. Latency, cost and outcome are shown on the right.</p>}
             {c.transcript.map((t, i) => (
               <div key={i} className={`msg ${t.role} ${t.interrupted ? "int" : ""}`}>
                 <span className="spk">{t.role}</span>{t.text}
               </div>
             ))}
-            {c.tool_calls.map((t, i) => <div key={`t${i}`} className="chip pink mono">{t.at}s · {t.name}({t.arguments})</div>)}
+            {c.tool_calls.map((t, i) => <div key={`t${i}`} className="chip pink mono">{t.at}s · {t.name}({t.arguments ?? ""})</div>)}
           </div>
         </div>
         <div className="grid" style={{ alignContent: "start" }}>
@@ -50,7 +51,8 @@ export default function CallDetail() {
               <dt>Total</dt><dd>{fmtInr(c.cost_inr)}</dd>
               <dt>Per minute</dt><dd>{fmtInr(c.cost_inr_per_min)}</dd>
               <dt>LLM failovers</dt><dd>{c.llm_failovers ?? 0}</dd>
-              {Object.entries(c.metrics.cost?.usd ?? {}).map(([k, v]) => <Fragment key={k}><dt>{k} (USD)</dt><dd className="mono">${v}</dd></Fragment>)}
+              {Object.entries(inrBreakdown(c.metrics.cost)).filter(([k]) => k !== "total").map(([k, v]) =>
+                <Fragment key={k}><dt>{k.toUpperCase()}</dt><dd className="mono">{fmtInr(v, 3)}</dd></Fragment>)}
             </dl>
           </div>
           <div className="card">
@@ -67,4 +69,12 @@ export default function CallDetail() {
       </section>
     </>
   );
+}
+
+/** Per-stage cost in rupees. Older call records only stored USD; convert them with the call's own rate. */
+function inrBreakdown(cost?: { inr_total: number; usd: Record<string, number>; inr?: Record<string, number> }): Record<string, number> {
+  if (!cost) return {};
+  if (cost.inr) return cost.inr;
+  const rate = cost.usd?.total ? cost.inr_total / cost.usd.total : 0;
+  return Object.fromEntries(Object.entries(cost.usd ?? {}).map(([k, v]) => [k, v * rate]));
 }

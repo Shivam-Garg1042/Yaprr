@@ -41,3 +41,12 @@ def test_resolve_falls_back_to_local_demo_without_api(monkeypatch):
     r = asyncio.run(resolve_agent(meta))
     assert r.source == "local" and r.config["prompt"]
     assert r.context["customer_name"] == "Shivam" and r.context["scenario"]  # job context overrides demo context
+
+
+def test_demo_cap_only_shortens_calls():
+    from services.runtime import cap_call_length
+    cfg = {"safety": {"max_call_seconds": 360}}
+    assert cap_call_length(cfg, {"max_call_seconds": 120})["safety"]["max_call_seconds"] == 120
+    assert cap_call_length({"safety": {"max_call_seconds": 60}}, {"max_call_seconds": 120})["safety"]["max_call_seconds"] == 60
+    assert cap_call_length(cfg, {})["safety"]["max_call_seconds"] == 360
+    assert cap_call_length({}, {"max_call_seconds": 90})["safety"]["max_call_seconds"] == 90

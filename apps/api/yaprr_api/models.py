@@ -84,3 +84,16 @@ class Call(Base):
     tool_calls: Mapped[list] = mapped_column(JSON, default=list)
     transcript: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class DemoSession(Base):
+    """One row per public demo call we handed out. Used to enforce the per-IP and daily caps.
+    Stores a salted hash of the IP, never the IP itself."""
+
+    __tablename__ = "demo_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ip_hash: Mapped[str] = mapped_column(String(64), index=True)
+    room_name: Mapped[str] = mapped_column(String(128))
+    seconds_reserved: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)

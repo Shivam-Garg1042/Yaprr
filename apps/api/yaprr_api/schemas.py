@@ -230,6 +230,7 @@ class CallOut(CallSummary):
     dispositions: dict[str, Any]
     tool_calls: list[dict[str, Any]]
     transcript: list[dict[str, Any]]
+    redacted: bool = False  # true for public visitors: transcript and context removed
 
 
 class TestSessionIn(BaseModel):

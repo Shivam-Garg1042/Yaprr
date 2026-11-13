@@ -132,9 +132,12 @@ class CallMetrics:
         platform = call_seconds / 60 * p.platform_usd_per_min
         total = stt + llm + tts + platform
         minutes = call_seconds / 60 if call_seconds > 0 else 0
+        parts = {"stt": stt, "llm": llm, "tts": tts, "platform": platform, "total": total}
         return {
-            "usd": {k: round(v, 5) for k, v in
-                    {"stt": stt, "llm": llm, "tts": tts, "platform": platform, "total": total}.items()},
+            # Providers bill in USD, so the raw USD numbers stay for auditing; the product shows rupees.
+            "usd": {k: round(v, 5) for k, v in parts.items()},
+            "inr": {k: round(v * p.usd_to_inr, 3) for k, v in parts.items()},
+            "usd_to_inr": p.usd_to_inr,
             "inr_total": round(total * p.usd_to_inr, 3),
             "inr_per_minute": round(total * p.usd_to_inr / minutes, 3) if minutes else None,
             "note": "estimate from unit prices in config.Pricing",

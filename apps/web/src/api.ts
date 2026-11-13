@@ -41,10 +41,11 @@ export interface CallFilters { agent_id?: string; version?: number; outcome?: st
 export interface Turn { role: "agent" | "customer"; text: string; interrupted?: boolean }
 export interface CallDetail extends CallSummary {
   context: Record<string, string>; pipeline: Record<string, unknown>;
-  metrics: { latency?: Record<string, { p50_ms: number | null; p95_ms: number | null; n: number }>; usage?: Record<string, number>; cost?: { inr_total: number; inr_per_minute: number | null; usd: Record<string, number> } };
+  metrics: { latency?: Record<string, { p50_ms: number | null; p95_ms: number | null; n: number }>; usage?: Record<string, number>; cost?: { inr_total: number; inr_per_minute: number | null; usd: Record<string, number>; inr?: Record<string, number> } };
   dispositions: { answers?: Record<string, unknown> | null; error?: string; status?: string; model?: string; attempts?: number };
-  tool_calls: { name: string; arguments: string; at: number }[];
+  tool_calls: { name: string; arguments?: string; at: number }[];
   transcript: Turn[];
+  redacted?: boolean;  // visitor view: transcript, context and free-text answers removed
 }
 export interface Overview {
   totals: Stats;
@@ -77,7 +78,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
-  if (res.status === 401) window.dispatchEvent(new Event("yaprr:unauthorized"));
+  if (res.status === 401) {
+    window.dispatchEvent(new Event("yaprr:unauthorized"));
+    if (!token) throw new ApiError(401, "This is a read-only demo. Sign in to make changes.");
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try {
@@ -106,7 +110,19 @@ export const api = {
   call: (id: string) => req<CallDetail>(`/api/calls/${id}`),
   overview: (f: CallFilters = {}) => req<Overview>(`/api/stats/overview${qs(f)}`),
   duplicate: (id: string) => req<Agent>(`/api/agents/${id}/duplicate`, { method: "POST" }),
+  demo: () => req<DemoInfo>("/api/public/demo"),
+  demoSession: () => req<SessionOut>("/api/public/demo-session", { method: "POST" }),
 };
+
+export interface SessionOut { livekit_url: string; token: string; room_name: string; agent_version: number | null }
+export interface DemoInfo {
+  enabled: boolean; public_read: boolean;
+  agent?: { name: string; persona: string; use_case: string; language: string; version: number | null };
+  limits?: { max_call_seconds: number; calls_per_day: number; calls_left: number; minutes_left_today: number };
+}
+
+/** No token = visitor. With PUBLIC_READ on, visitors can look around but not change anything. */
+export const isViewer = () => !auth.get();
 
 export const fmtMs = (v: number | null | undefined) => (v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(2)}s` : `${Math.round(v)}ms`);
 export const fmtInr = (v: number | null | undefined, digits = 2) => (v == null ? "—" : `₹${v.toFixed(digits)}`);

@@ -119,6 +119,25 @@ triggers a rolling restart.
 The rewrite makes the browser call `/api/...` on the Vercel domain, and Vercel
 forwards it to Lambda. Same origin means no CORS setup and no API URL baked into the JS.
 
+## 4b. Web on Netlify (what the live site uses)
+`apps/web/netlify.toml` does the same job as `vercel.json`: it proxies `/api/*` to Lambda and adds the SPA fallback.
+In Netlify, set **Base directory: `apps/web`**. Build `npm run build`, publish `dist`.
+
+## 4c. Public demo and read-only mode
+Set these on the Lambda (`aws lambda update-function-configuration --environment file://deploy/aws/lambda-env.json`):
+
+| Var | Meaning |
+|---|---|
+| `PUBLIC_READ=true` | Visitors can browse agents, calls and dashboards without a token. Writes still need `ADMIN_TOKEN`. |
+| `PUBLIC_TRANSCRIPTS` | Default `true`: visitors see transcripts too. Set `false` to show only metrics and outcomes. |
+| `DEMO_ENABLED=true` | Turns on `/try`: anyone can call the demo agent. |
+| `DEMO_MAX_CALL_SECONDS` | The worker hangs up at this point. The limit is signed into the LiveKit token. |
+| `DEMO_CALLS_PER_IP_PER_DAY` | Per visitor, rolling 24 h. Best effort: IPs are shared and VPNs exist. |
+| `DEMO_MINUTES_PER_DAY` | The hard cap. Each call reserves its full length, so the worst case is this × ~₹3/day. |
+
+Also put a monthly spend limit on every provider account: Groq, OpenAI, Deepgram, Cartesia and Google AI Studio.
+The caps above only protect the demo; leaked keys would bypass them.
+
 ## 5. Smoke test (5 min)
 1. Dashboard loads after sign-in, and both demo agents are listed.
 2. Agent → Talk to agent → Start test call. The agent greets you within ~1 s.

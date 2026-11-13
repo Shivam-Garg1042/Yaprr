@@ -6,8 +6,9 @@ import {
   useVoiceAssistant,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { useMemo, useState } from "react";
-import { api } from "../api";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { api, isViewer } from "../api";
 
 /** Browser test call: the API mints a LiveKit token whose room dispatches our worker
  *  with {agent_id, version, context}; the worker loads that agent from the DB. */
@@ -32,6 +33,16 @@ export default function TalkToAgent({ agentId, variables, published }: { agentId
     }
   }
 
+  if (isViewer()) {
+    return (
+      <div className="grid">
+        <p className="sub" style={{ margin: 0 }}>Test calls from the editor need sign-in, because every call costs real money.
+          Visitors can talk to the demo agent instead, with a short time limit.</p>
+        <div><Link className="btn pri" to="/try">Try the live demo</Link></div>
+      </div>
+    );
+  }
+
   if (session) {
     return (
       <LiveKitRoom serverUrl={session.url} token={session.token} connect audio video={false}
@@ -45,7 +56,7 @@ export default function TalkToAgent({ agentId, variables, published }: { agentId
   return (
     <div className="grid">
       <p className="sub" style={{ margin: 0 }}>
-        Starts a real call in your browser (mic). The worker must be running: <span className="mono">python main.py dev</span>.
+        Starts a real call in your browser (mic). Locally, the worker must be running (<span className="mono">python main.py dev</span>).
         Leave a value empty to use the demo value.
       </p>
       <div className="form">
@@ -67,7 +78,9 @@ export default function TalkToAgent({ agentId, variables, published }: { agentId
   );
 }
 
-function LiveCall({ room, version, onEnd }: { room: string; version: number | null; onEnd: () => void }) {
+export function LiveCall({ room, version, onEnd, limitSeconds, note }:
+  { room: string; version: number | null; onEnd: () => void; limitSeconds?: number; note?: string }) {
+  const left = useCountdown(limitSeconds);
   const { state, agentTranscriptions } = useVoiceAssistant();
   const { localParticipant, microphoneTrack } = useLocalParticipant();
   const micRef = useMemo(
@@ -89,9 +102,9 @@ function LiveCall({ room, version, onEnd }: { room: string; version: number | nu
       <div className={`stage ${state === "speaking" ? "speaking" : ""}`}>
         <div className="orb" aria-hidden="true" />
         <h2 style={{ fontSize: 22 }}>{labelFor[state] ?? state}</h2>
-        <div className="sub mono">{room} · {version ? `v${version}` : "draft"}</div>
+        <div className="sub mono">{room} · {version ? `v${version}` : "draft"}{left != null && ` · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left`}</div>
         <button className="btn danger" onClick={onEnd}>End call</button>
-        <p className="sub" style={{ margin: 0 }}>The call record (latency, cost, outcome) shows up in Calls after you end.</p>
+        <p className="sub" style={{ margin: 0 }}>{note ?? "The call record (latency, cost, outcome) shows up in Calls after you end."}</p>
       </div>
       <div className="card">
         <h3 style={{ marginBottom: 10 }}>Live transcript</h3>
@@ -102,4 +115,16 @@ function LiveCall({ room, version, onEnd }: { room: string; version: number | nu
       </div>
     </div>
   );
+}
+
+/** Seconds left on a capped call. The worker enforces the cap; this only shows it. */
+function useCountdown(total?: number) {
+  const [left, setLeft] = useState(total);
+  useEffect(() => {
+    if (!total) return;
+    const started = Date.now();
+    const t = setInterval(() => setLeft(Math.max(0, total - Math.floor((Date.now() - started) / 1000))), 1000);
+    return () => clearInterval(t);
+  }, [total]);
+  return total ? left ?? total : null;
 }

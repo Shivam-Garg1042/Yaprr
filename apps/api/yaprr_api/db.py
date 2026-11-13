@@ -49,6 +49,9 @@ def migrate(engine_=None) -> str:
     insp = inspect(engine_)
     legacy = insp.has_table("agents") and not insp.has_table("alembic_version")
     if legacy:
+        import yaprr_api.models  # noqa: F401 - register every table on Base.metadata
+
+        Base.metadata.create_all(engine_)  # tables added after the DB was made
         add_missing_columns(engine_)
     with engine_.begin() as conn:
         cfg.attributes["connection"] = conn  # migrate *this* engine, not the app default

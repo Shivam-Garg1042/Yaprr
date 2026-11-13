@@ -2,7 +2,7 @@
 
 Resolution order for a call:
   1. Job metadata from the dispatch (set by the API's test-session / campaign
-     dispatcher): {"agent_id", "version", "draft", "context"}
+     dispatcher): {"agent_id", "version", "draft", "context", "max_call_seconds"?}
   2. DEFAULT_AGENT_ID env -> fetched from the API (handy for `console` mode)
   3. local_agents/demo_collections.json (works with no API at all)
 
@@ -61,8 +61,25 @@ async def fetch_runtime(api_url: str, token: str, agent_id: str, version: int | 
             return await resp.json()
 
 
+def cap_call_length(config: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
+    """Public demo calls carry `max_call_seconds` in the dispatch metadata. The API signs it
+    into the LiveKit token, so a visitor can't change it. It can only shorten a call."""
+    cap = meta.get("max_call_seconds")
+    if not isinstance(cap, int) or cap <= 0:
+        return config
+    safety = dict(config.get("safety") or {})
+    safety["max_call_seconds"] = min(int(safety.get("max_call_seconds") or cap), cap)
+    return {**config, "safety": safety}
+
+
 async def resolve_agent(job_metadata: str | None) -> ResolvedAgent:
     meta = parse_job_metadata(job_metadata)
+    resolved = await _resolve(meta)
+    resolved.config = cap_call_length(resolved.config, meta)
+    return resolved
+
+
+async def _resolve(meta: dict[str, Any]) -> ResolvedAgent:
     api_url = os.getenv("YAPRR_API_URL", "")
     token = os.getenv("YAPRR_WORKER_TOKEN", "dev-worker-token")
     agent_id = meta.get("agent_id") or os.getenv("DEFAULT_AGENT_ID") or None

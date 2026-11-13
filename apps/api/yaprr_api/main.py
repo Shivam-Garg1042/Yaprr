@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from yaprr_api.db import SessionLocal, migrate
-from yaprr_api.routes import agents, calls
+from yaprr_api.routes import agents, calls, public
 from yaprr_api.seed import seed_demo_agents
 from yaprr_api.settings import get_settings
 
@@ -33,11 +33,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # Routers carry their own auth: dashboard endpoints need the admin token,
-# /api/internal/* need the worker token (see deps.py).
+# /api/internal/* need the worker token, /api/public/* is open but capped (see deps.py, routes/public.py).
+app.include_router(agents.read)
 app.include_router(agents.router)
 app.include_router(agents.internal)
 app.include_router(calls.router)
 app.include_router(calls.internal)
+app.include_router(public.router)  # no auth: spend caps inside
 
 
 @app.get("/api/health")

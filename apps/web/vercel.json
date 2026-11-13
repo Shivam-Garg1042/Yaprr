@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://REPLACE-WITH-YOUR-LAMBDA-URL-HOST/api/:path*" },
+    { "source": "/api/:path*", "destination": "https://vwy55llhlbykutscmlu4hc6pca0waibj.lambda-url.ap-southeast-1.on.aws/api/:path*" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

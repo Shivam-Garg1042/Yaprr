@@ -1,0 +1,22 @@
+# Netlify config. Set the site's Base directory to apps/web in the Netlify UI
+# (or keep this file there); build runs from this folder.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Proxy /api/* to the Lambda Function URL. status 200 = rewrite (proxy), not redirect,
+# so the browser stays on the Netlify origin: no CORS, no API URL in the JS bundle.
+[[redirects]]
+  from = "/api/*"
+  to = "https://vwy55llhlbykutscmlu4hc6pca0waibj.lambda-url.ap-southeast-1.on.aws/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback: client-side routes (/agents/123, /calls) serve index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

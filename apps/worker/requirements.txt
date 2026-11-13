@@ -2,4 +2,6 @@
 # changed the turn-detector models and broke startup. Upgrade on purpose, test, then bump.
 livekit-agents[deepgram,cartesia,google,openai,silero,turn-detector]==1.5.8
 livekit-plugins-noise-cancellation==0.3.2
+# livekit-agents 1.5.8 imports httpx but does not declare it; clean Docker builds miss it.
+httpx>=0.27,<1
 python-dotenv

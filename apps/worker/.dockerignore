@@ -5,3 +5,7 @@ __pycache__/
 tests/
 runtime/
 .env
+*.env
+secrets.prod.env
+livekit.toml
+KMS/
